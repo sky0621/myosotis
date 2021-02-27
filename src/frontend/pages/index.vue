@@ -10,7 +10,7 @@
             {{ image.Date }}
           </v-card-subtitle>
           <v-card-text>
-            <v-img :src="image.URL" height="64px"></v-img>
+            <v-img :src="image.URL" height="640px"></v-img>
           </v-card-text>
         </v-card>
       </template>
