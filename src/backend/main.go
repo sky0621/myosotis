@@ -15,8 +15,6 @@ import (
 )
 
 func main() {
-	fmt.Println("App Start")
-
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -29,7 +27,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("conf[Email:%s][PrivateKey:%s]\n", conf.Email, string(conf.PrivateKey))
 
 	opts := &storage.SignedURLOptions{
 		GoogleAccessID: conf.Email,
@@ -37,8 +34,6 @@ func main() {
 		Method:         http.MethodGet,
 	}
 	fn := func(fileName string, expires time.Time) (string, error) {
-		fmt.Printf("bucketName:%s\n", bucketName)
-
 		opts.Expires = expires
 		url, err := storage.SignedURL(bucketName, fileName, opts)
 		if err != nil {
