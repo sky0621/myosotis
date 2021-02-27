@@ -1,7 +1,7 @@
 package main
 
 import (
-	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -15,33 +15,38 @@ import (
 )
 
 func main() {
+	fmt.Println("App Start")
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		log.Printf("Defaulting to port %s", port)
+		fmt.Printf("Defaulting to port %s\n", port)
 	}
 	bucketName := os.Getenv("BUCKET_NAME")
+	cred := os.Getenv("GCS_SA_CREDENTIALS")
 
-	ctx := context.Background()
-	creds, err := google.FindDefaultCredentials(ctx, storage.ScopeReadOnly)
+	conf, err := google.JWTConfigFromJSON([]byte(cred), storage.ScopeReadOnly)
 	if err != nil {
 		log.Fatal(err)
 	}
-	conf, err := google.JWTConfigFromJSON(creds.JSON, storage.ScopeReadOnly)
-	if err != nil {
-		log.Fatal(err)
-	}
+	fmt.Printf("conf[Email:%s][PrivateKey:%s]\n", conf.Email, string(conf.PrivateKey))
+
 	opts := &storage.SignedURLOptions{
 		GoogleAccessID: conf.Email,
 		PrivateKey:     conf.PrivateKey,
 		Method:         http.MethodGet,
 	}
 	fn := func(fileName string, expires time.Time) (string, error) {
+		fmt.Printf("bucketName:%s\n", bucketName)
+
 		opts.Expires = expires
 		url, err := storage.SignedURL(bucketName, fileName, opts)
 		if err != nil {
+			fmt.Println(err)
 			return "", err
 		}
+		fmt.Printf("signedURL:%s\n", url)
+
 		return url, nil
 	}
 
@@ -74,10 +79,24 @@ func list(fn signedURLFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		url, err := fn("drink.JPG", time.Now().Add(30*time.Minute))
 		if err != nil {
+			fmt.Println(err)
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
-		return c.String(http.StatusOK, url)
+		fmt.Println(url)
+
+		var imgs []*Image
+		imgs = append(imgs, &Image{
+			Title: "床下パントリー",
+			Date:  "2021-02-28",
+			URL:   url,
+		})
+
+		return c.JSON(http.StatusOK, imgs)
 	}
 }
 
 type signedURLFunc func(fileName string, expires time.Time) (string, error)
+
+type Image struct {
+	Title, Date, URL string
+}
