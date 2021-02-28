@@ -1,17 +1,47 @@
 <template>
-  <v-row justify="center" align="center">
-    <v-col cols="12" sm="8" md="6">
-      <template v-for="image in images">
+  <v-row justify="center" align="center" no-gutters>
+    <v-col cols="12">
+      <v-btn color="pink" fab class="ma-2" @click="showNewDialog()"
+        ><v-icon>mdi-plus</v-icon></v-btn
+      >
+    </v-col>
+    <v-dialog v-model="newDialog" max-width="480px">
+      <v-form>
         <v-card>
-          <v-card-title class="headline">
-            {{ image.Title }}
-          </v-card-title>
-          <v-card-subtitle>
-            {{ image.Date }}
-          </v-card-subtitle>
+          <v-card-title
+            >New Image<v-btn absolute top right @click="saveImage()"
+              >SAVE</v-btn
+            ></v-card-title
+          >
           <v-card-text>
-            <v-img :src="image.URL" height="480px"></v-img>
+            <v-text-field v-model="name" label="insert name"></v-text-field>
+            <v-file-input
+              v-model="imagefile"
+              label="select image"
+            ></v-file-input>
           </v-card-text>
+        </v-card>
+      </v-form>
+    </v-dialog>
+    <v-col cols="12" xs="12" sm="8" md="6" lg="4" xl="4">
+      <template v-for="image in images">
+        <v-card class="pa-2 ma-2" outlined tile>
+          <v-img :src="image.URL"> </v-img>
+          <v-card-title v-text="image.Date"></v-card-title>
+          <v-card-text v-text="image.Title"></v-card-text>
+          <v-card-actions>
+            <v-btn
+              disabled="disabled"
+              color="grey"
+              absolute
+              bottom
+              right
+              fab
+              class="mb-12"
+              @click="deleteImage()"
+              ><v-icon>mdi-minus</v-icon></v-btn
+            >
+          </v-card-actions>
         </v-card>
       </template>
     </v-col>
@@ -21,11 +51,7 @@
 <script>
 export default {
   async asyncData({ app }) {
-    console.log('asyncData')
     const response = await app.$axios.$get('/api/list')
-    console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-    console.log(response)
-    console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
     return {
       images: response,
     }
@@ -33,7 +59,22 @@ export default {
   data() {
     return {
       images: [],
+      newDialog: false,
+      editDialog: false,
+      name: '',
+      imagefile: null,
     }
+  },
+  methods: {
+    showNewDialog() {
+      this.newDialog = true
+    },
+    saveImage() {
+      this.newDialog = false
+    },
+    deleteImage(id) {
+      console.log(id)
+    },
   },
 }
 </script>
