@@ -26,9 +26,9 @@
     <v-col cols="12" xs="12" sm="8" md="6" lg="4" xl="4">
       <template v-for="image in images">
         <v-card class="pa-2 ma-2" outlined tile>
-          <v-img :src="image.URL"> </v-img>
-          <v-card-title v-text="image.Date"></v-card-title>
-          <v-card-text v-text="image.Title"></v-card-text>
+          <v-img :src="image.path"> </v-img>
+          <v-card-title v-text="image.date"></v-card-title>
+          <v-card-text v-text="image.name"></v-card-text>
           <v-card-actions>
             <v-btn
               disabled="disabled"
@@ -38,7 +38,7 @@
               right
               fab
               class="mb-12"
-              @click="deleteImage()"
+              @click="deleteImage(image.id)"
               ><v-icon>mdi-minus</v-icon></v-btn
             >
           </v-card-actions>

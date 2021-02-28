@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"google.golang.org/api/iterator"
+
 	"cloud.google.com/go/firestore"
 	"cloud.google.com/go/storage"
 	"github.com/google/uuid"
@@ -116,8 +118,8 @@ func main() {
 	e.Use(middleware.CORS())
 
 	e.GET("/*", static())
-	e.GET("/api/list", list(signedURLFunc))
-	e.POST("/api/addImage", addImage(uploadGCSObjectFunc, firestoreCli))
+	e.GET("/api/list", list(firestoreCli, signedURLFunc))
+	e.POST("/api/addImage", addImage(firestoreCli, uploadGCSObjectFunc))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -144,7 +146,7 @@ func static() echo.HandlerFunc {
 	}
 }
 
-func addImage(uploadGCSObjectFunc uploadGCSObjectFunc, firestoreCli *firestore.Client) echo.HandlerFunc {
+func addImage(firestoreCli *firestore.Client, uploadGCSObjectFunc uploadGCSObjectFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		name := c.FormValue("name")
 		fmt.Printf("name:%s\n", name)
@@ -173,10 +175,10 @@ func addImage(uploadGCSObjectFunc uploadGCSObjectFunc, firestoreCli *firestore.C
 
 		_, err = firestoreCli.Collection("image").Doc(uid.String()).Set(c.Request().Context(),
 			map[string]interface{}{
-				"id":    uid.String(),
-				"name":  name,
-				"date":  time.Now().Format("2006-01-02"),
-				"image": objectName,
+				"id":   uid.String(),
+				"name": name,
+				"date": time.Now().Format("2006-01-02"),
+				"path": objectName,
 			},
 		)
 		if err != nil {
@@ -188,36 +190,32 @@ func addImage(uploadGCSObjectFunc uploadGCSObjectFunc, firestoreCli *firestore.C
 	}
 }
 
-func list(signedURLFunc signedURLFunc) echo.HandlerFunc {
+func list(firestoreCli *firestore.Client, signedURLFunc signedURLFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		url, err := signedURLFunc("drink.JPG", time.Now().Add(30*time.Minute))
-		if err != nil {
-			fmt.Println(err)
-			return c.String(http.StatusInternalServerError, err.Error())
+		iter := firestoreCli.Collection("image").Documents(c.Request().Context())
+		var images []*Image
+		for {
+			doc, err := iter.Next()
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				return err
+			}
+			var image *Image
+			if err := doc.DataTo(&image); err != nil {
+				fmt.Println(err)
+				return c.String(http.StatusInternalServerError, err.Error())
+			}
+			url, err := signedURLFunc(image.Path, time.Now().Add(30*time.Minute))
+			if err != nil {
+				fmt.Println(err)
+				return c.String(http.StatusInternalServerError, err.Error())
+			}
+			image.Path = url
+			images = append(images, image)
 		}
-		fmt.Println(url)
-
-		var imgs []*Image
-		imgs = append(imgs, &Image{
-			Title: "床下パントリー",
-			Date:  "2021-02-27",
-			URL:   url,
-		})
-
-		url2, err := signedURLFunc("handwipes.JPG", time.Now().Add(30*time.Minute))
-		if err != nil {
-			fmt.Println(err)
-			return c.String(http.StatusInternalServerError, err.Error())
-		}
-		fmt.Println(url2)
-
-		imgs = append(imgs, &Image{
-			Title: "ウェットティッシュ",
-			Date:  "2021-02-28",
-			URL:   url2,
-		})
-
-		return c.JSON(http.StatusOK, imgs)
+		return c.JSON(http.StatusOK, images)
 	}
 }
 
@@ -228,5 +226,8 @@ type uploadGCSObjectFunc func(ctx context.Context, objectName string, reader io.
 type signedURLFunc func(fileName string, expires time.Time) (string, error)
 
 type Image struct {
-	ID, Title, Date, URL string
+	Date string `json:"date"`
+	ID   string `json:"id"`
+	Path string `json:"path"`
+	Name string `json:"name"`
 }
