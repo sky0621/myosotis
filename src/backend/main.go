@@ -120,6 +120,7 @@ func main() {
 	e.GET("/*", static())
 	e.GET("/api/list", list(firestoreCli, signedURLFunc))
 	e.POST("/api/addImage", addImage(firestoreCli, uploadGCSObjectFunc))
+	e.PUT("/api/updateImage", updateImage(firestoreCli, uploadGCSObjectFunc))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -179,6 +180,49 @@ func addImage(firestoreCli *firestore.Client, uploadGCSObjectFunc uploadGCSObjec
 				"name": name,
 				"date": time.Now().Format("2006-01-02"),
 				"path": objectName,
+			},
+		)
+		if err != nil {
+			fmt.Println(err)
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+
+		return nil
+	}
+}
+
+func updateImage(firestoreCli *firestore.Client, uploadGCSObjectFunc uploadGCSObjectFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.FormValue("id")
+		fmt.Printf("id:%s\n", id)
+		//name := c.FormValue("name")
+		//fmt.Printf("name:%s\n", name)
+
+		imageFile, err := c.FormFile("imageFile")
+		if err != nil {
+			fmt.Println(err)
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+		f, err := imageFile.Open()
+		if err != nil {
+			fmt.Println(err)
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+		fmt.Printf("imageFile.Filename:%s\n", imageFile.Filename)
+
+		objectName := id + filepath.Ext(imageFile.Filename)
+		fmt.Printf("objectName:%s\n", objectName)
+
+		if err := uploadGCSObjectFunc(c.Request().Context(), objectName, f); err != nil {
+			fmt.Println(err)
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+
+		_, err = firestoreCli.Collection("image").Doc(id).Update(c.Request().Context(),
+			[]firestore.Update{
+				//{Path: "name", Value: name},
+				{Path: "date", Value: time.Now().Format("2006-01-02")},
+				{Path: "path", Value: objectName},
 			},
 		)
 		if err != nil {

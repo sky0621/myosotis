@@ -23,9 +23,32 @@
         </v-card>
       </v-form>
     </v-dialog>
+    <v-dialog v-model="editDialog" max-width="480px">
+      <v-form>
+        <v-card>
+          <v-card-title
+            >Update Image<v-btn absolute top right @click="updateImage()"
+              >SAVE</v-btn
+            ></v-card-title
+          >
+          <v-card-text>
+            <!--            <v-text-field v-model="name" label="insert name"></v-text-field>-->
+            <v-file-input
+              v-model="imageFile"
+              label="select image"
+            ></v-file-input>
+          </v-card-text>
+        </v-card>
+      </v-form>
+    </v-dialog>
     <v-col cols="12" xs="12" sm="8" md="6" lg="4" xl="4">
       <template v-for="image in images">
-        <v-card class="pa-2 ma-2" outlined tile>
+        <v-card
+          class="pa-2 ma-2"
+          outlined
+          tile
+          @click="showEditDialog(image.id)"
+        >
           <v-img :src="image.path"> </v-img>
           <v-card-title v-text="image.date"></v-card-title>
           <v-card-text v-text="image.name"></v-card-text>
@@ -61,6 +84,8 @@ export default {
       images: [],
       newDialog: false,
       editDialog: false,
+
+      id: '',
       name: '',
       imageFile: null,
     }
@@ -69,12 +94,25 @@ export default {
     showNewDialog() {
       this.newDialog = true
     },
+    showEditDialog(id) {
+      console.log(id)
+      this.id = id
+      this.editDialog = true
+    },
     async saveImage() {
       const formData = new FormData()
       formData.append('name', this.name)
       formData.append('imageFile', this.imageFile)
       await this.$axios.post('/api/addImage', formData)
       this.newDialog = false
+    },
+    async updateImage() {
+      const formData = new FormData()
+      formData.append('id', this.id)
+      // formData.append('name', this.name)
+      formData.append('imageFile', this.imageFile)
+      await this.$axios.put('/api/updateImage', formData)
+      this.editDialog = false
     },
     deleteImage(id) {
       console.log(id)
