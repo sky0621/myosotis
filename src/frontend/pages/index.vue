@@ -10,7 +10,7 @@
             {{ image.Date }}
           </v-card-subtitle>
           <v-card-text>
-            <v-img :src="image.URL" height="640px"></v-img>
+            <v-img :src="image.URL" height="480px"></v-img>
           </v-card-text>
         </v-card>
       </template>
@@ -21,9 +21,11 @@
 <script>
 export default {
   async asyncData({ app }) {
-    console.log(app)
+    console.log('asyncData')
     const response = await app.$axios.$get('/api/list')
+    console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
     console.log(response)
+    console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
     return {
       images: response,
     }

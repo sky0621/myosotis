@@ -17,7 +17,7 @@ import (
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "3000"
+		port = "8080"
 		fmt.Printf("Defaulting to port %s\n", port)
 	}
 	bucketName := os.Getenv("BUCKET_NAME")
@@ -48,6 +48,7 @@ func main() {
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	e.Use(middleware.CORS())
 
 	e.GET("/*", static())
 	e.GET("/api/list", list(fn))
@@ -82,8 +83,21 @@ func list(fn signedURLFunc) echo.HandlerFunc {
 		var imgs []*Image
 		imgs = append(imgs, &Image{
 			Title: "床下パントリー",
-			Date:  "2021-02-28",
+			Date:  "2021-02-27",
 			URL:   url,
+		})
+
+		url2, err := fn("handwipes.JPG", time.Now().Add(30*time.Minute))
+		if err != nil {
+			fmt.Println(err)
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+		fmt.Println(url2)
+
+		imgs = append(imgs, &Image{
+			Title: "ウェットティッシュ",
+			Date:  "2021-02-28",
+			URL:   url2,
 		})
 
 		return c.JSON(http.StatusOK, imgs)
