@@ -16,7 +16,7 @@
           <v-card-text>
             <v-text-field v-model="name" label="insert name"></v-text-field>
             <v-file-input
-              v-model="imagefile"
+              v-model="imageFile"
               label="select image"
             ></v-file-input>
           </v-card-text>
@@ -62,14 +62,18 @@ export default {
       newDialog: false,
       editDialog: false,
       name: '',
-      imagefile: null,
+      imageFile: null,
     }
   },
   methods: {
     showNewDialog() {
       this.newDialog = true
     },
-    saveImage() {
+    async saveImage() {
+      const formData = new FormData()
+      formData.append('name', this.name)
+      formData.append('imageFile', this.imageFile)
+      await this.$axios.post('/api/addImage', formData)
       this.newDialog = false
     },
     deleteImage(id) {

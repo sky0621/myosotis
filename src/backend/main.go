@@ -52,6 +52,7 @@ func main() {
 
 	e.GET("/*", static())
 	e.GET("/api/list", list(fn))
+	e.POST("/api/addImage", addImage())
 
 	if err := e.Start(":" + port); err != nil {
 		log.Fatal(err)
@@ -67,6 +68,20 @@ func static() echo.HandlerFunc {
 		}
 		fs := http.FileServer(http.Dir(filepath.Join(wd, "view")))
 		fs.ServeHTTP(c.Response(), c.Request())
+		return nil
+	}
+}
+
+func addImage() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		name := c.FormValue("name")
+		imageFile, err := c.FormFile("imageFile")
+		if err != nil {
+			fmt.Println(err)
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+		fmt.Printf("name:%s\n", name)
+		fmt.Println(imageFile.Filename)
 		return nil
 	}
 }
@@ -107,5 +122,5 @@ func list(fn signedURLFunc) echo.HandlerFunc {
 type signedURLFunc func(fileName string, expires time.Time) (string, error)
 
 type Image struct {
-	Title, Date, URL string
+	ID, Title, Date, URL string
 }
