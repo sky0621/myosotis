@@ -10,14 +10,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"google.golang.org/api/iterator"
-
 	"cloud.google.com/go/firestore"
 	"cloud.google.com/go/storage"
 	"github.com/google/uuid"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
@@ -93,6 +92,13 @@ func main() {
 		}
 		return nil
 	}
+	deleteGCSObjectFunc := func(ctx context.Context, objectName string) error {
+		if err := storageCli.Bucket(bucketName).Object(objectName).Delete(ctx); err != nil {
+			fmt.Println(err)
+			return err
+		}
+		return nil
+	}
 
 	/*
 	 * Firestoreアクセス用クライアント生成
@@ -121,6 +127,7 @@ func main() {
 	e.GET("/api/list", list(firestoreCli, signedURLFunc))
 	e.POST("/api/addImage", addImage(firestoreCli, uploadGCSObjectFunc))
 	e.PUT("/api/updateImage", updateImage(firestoreCli, uploadGCSObjectFunc))
+	e.PUT("/api/deleteImage", deleteImage(firestoreCli, deleteGCSObjectFunc))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -164,22 +171,18 @@ func addImage(firestoreCli *firestore.Client, uploadGCSObjectFunc uploadGCSObjec
 		}
 		fmt.Printf("imageFile.Filename:%s\n", imageFile.Filename)
 
-		uid := uuid.New()
+		id := uuid.New().String()
 
-		objectName := uid.String() + filepath.Ext(imageFile.Filename)
-		fmt.Printf("objectName:%s\n", objectName)
-
-		if err := uploadGCSObjectFunc(c.Request().Context(), objectName, f); err != nil {
+		if err := uploadGCSObjectFunc(c.Request().Context(), id, f); err != nil {
 			fmt.Println(err)
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
 
-		_, err = firestoreCli.Collection("image").Doc(uid.String()).Set(c.Request().Context(),
+		_, err = firestoreCli.Collection("image").Doc(id).Set(c.Request().Context(),
 			map[string]interface{}{
-				"id":   uid.String(),
+				"id":   id,
 				"name": name,
 				"date": time.Now().Format("2006-01-02"),
-				"path": objectName,
 			},
 		)
 		if err != nil {
@@ -195,8 +198,6 @@ func updateImage(firestoreCli *firestore.Client, uploadGCSObjectFunc uploadGCSOb
 	return func(c echo.Context) error {
 		id := c.FormValue("id")
 		fmt.Printf("id:%s\n", id)
-		//name := c.FormValue("name")
-		//fmt.Printf("name:%s\n", name)
 
 		imageFile, err := c.FormFile("imageFile")
 		if err != nil {
@@ -210,22 +211,37 @@ func updateImage(firestoreCli *firestore.Client, uploadGCSObjectFunc uploadGCSOb
 		}
 		fmt.Printf("imageFile.Filename:%s\n", imageFile.Filename)
 
-		objectName := id + filepath.Ext(imageFile.Filename)
-		fmt.Printf("objectName:%s\n", objectName)
-
-		if err := uploadGCSObjectFunc(c.Request().Context(), objectName, f); err != nil {
+		if err := uploadGCSObjectFunc(c.Request().Context(), id, f); err != nil {
 			fmt.Println(err)
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
 
 		_, err = firestoreCli.Collection("image").Doc(id).Update(c.Request().Context(),
 			[]firestore.Update{
-				//{Path: "name", Value: name},
 				{Path: "date", Value: time.Now().Format("2006-01-02")},
-				{Path: "path", Value: objectName},
 			},
 		)
 		if err != nil {
+			fmt.Println(err)
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+
+		return nil
+	}
+}
+
+func deleteImage(firestoreCli *firestore.Client, deleteGCSObjectFunc deleteGCSObjectFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		id := c.FormValue("id")
+		fmt.Printf("id:%s\n", id)
+
+		_, err := firestoreCli.Collection("image").Doc(id).Delete(c.Request().Context())
+		if err != nil {
+			fmt.Println(err)
+			return c.String(http.StatusInternalServerError, err.Error())
+		}
+
+		if err := deleteGCSObjectFunc(c.Request().Context(), id); err != nil {
 			fmt.Println(err)
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
@@ -251,12 +267,12 @@ func list(firestoreCli *firestore.Client, signedURLFunc signedURLFunc) echo.Hand
 				fmt.Println(err)
 				return c.String(http.StatusInternalServerError, err.Error())
 			}
-			url, err := signedURLFunc(image.Path, time.Now().Add(30*time.Minute))
+			url, err := signedURLFunc(image.ID, time.Now().Add(30*time.Minute))
 			if err != nil {
 				fmt.Println(err)
 				return c.String(http.StatusInternalServerError, err.Error())
 			}
-			image.Path = url
+			image.URL = url
 			images = append(images, image)
 		}
 		return c.JSON(http.StatusOK, images)
@@ -266,12 +282,16 @@ func list(firestoreCli *firestore.Client, signedURLFunc signedURLFunc) echo.Hand
 // GCSオブジェクトアップロード用関数
 type uploadGCSObjectFunc func(ctx context.Context, objectName string, reader io.Reader) error
 
+// GCSオブジェクト削除用関数
+type deleteGCSObjectFunc func(ctx context.Context, objectName string) error
+
 // 署名付きURL生成用関数
 type signedURLFunc func(fileName string, expires time.Time) (string, error)
 
 type Image struct {
-	Date string `json:"date"`
 	ID   string `json:"id"`
-	Path string `json:"path"`
+	Date string `json:"date"`
 	Name string `json:"name"`
+
+	URL string `json:"url"`
 }

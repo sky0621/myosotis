@@ -32,7 +32,6 @@
             ></v-card-title
           >
           <v-card-text>
-            <!--            <v-text-field v-model="name" label="insert name"></v-text-field>-->
             <v-file-input
               v-model="imageFile"
               label="select image"
@@ -41,27 +40,34 @@
         </v-card>
       </v-form>
     </v-dialog>
+    <v-dialog v-model="deleteConfirm" max-width="480px">
+      <v-card>
+        <v-card-title
+          >Do you want to delete it?<v-btn
+            absolute
+            top
+            right
+            @click="deleteImage()"
+            >DELETE</v-btn
+          ></v-card-title
+        >
+      </v-card>
+    </v-dialog>
     <v-col cols="12" xs="12" sm="8" md="6" lg="4" xl="4">
       <template v-for="image in images">
-        <v-card
-          class="pa-2 ma-2"
-          outlined
-          tile
-          @click="showEditDialog(image.id)"
-        >
-          <v-img :src="image.path"> </v-img>
+        <v-card class="pa-2 ma-2" outlined tile>
+          <v-img :src="image.url" @click="showEditDialog(image.id)"> </v-img>
           <v-card-title v-text="image.date"></v-card-title>
           <v-card-text v-text="image.name"></v-card-text>
           <v-card-actions>
             <v-btn
-              disabled="disabled"
               color="grey"
               absolute
               bottom
               right
               fab
               class="mb-12"
-              @click="deleteImage(image.id)"
+              @click="showDeleteConfirm(image.id)"
               ><v-icon>mdi-minus</v-icon></v-btn
             >
           </v-card-actions>
@@ -84,6 +90,7 @@ export default {
       images: [],
       newDialog: false,
       editDialog: false,
+      deleteConfirm: false,
 
       id: '',
       name: '',
@@ -95,7 +102,6 @@ export default {
       this.newDialog = true
     },
     showEditDialog(id) {
-      console.log(id)
       this.id = id
       this.editDialog = true
     },
@@ -104,18 +110,24 @@ export default {
       formData.append('name', this.name)
       formData.append('imageFile', this.imageFile)
       await this.$axios.post('/api/addImage', formData)
-      this.newDialog = false
+      location.reload()
     },
     async updateImage() {
       const formData = new FormData()
       formData.append('id', this.id)
-      // formData.append('name', this.name)
       formData.append('imageFile', this.imageFile)
       await this.$axios.put('/api/updateImage', formData)
-      this.editDialog = false
+      location.reload()
     },
-    deleteImage(id) {
-      console.log(id)
+    showDeleteConfirm(id) {
+      this.id = id
+      this.deleteConfirm = true
+    },
+    async deleteImage() {
+      const formData = new FormData()
+      formData.append('id', this.id)
+      await this.$axios.put('/api/deleteImage', formData)
+      location.reload()
     },
   },
 }
